@@ -1,18 +1,19 @@
 const express = require("express");
-const { listContacts, addContact, getContactById, removeContact, updateContact } = require("../../models/contacts");
-const router = express.Router();
 const Joi = require("joi");
 
-const contactSchema = Joi.object({
- name: Joi.string().required(),
- email: Joi.string().email().required(),
- phone: Joi.string().required(),
+const contacts = require("../../models/contacts");
+
+const addSchema = Joi.object({
+ name: Joi.string(),
+ email: Joi.string(),
+ phone: Joi.string(),
 });
 
+const router = express.Router();
+
 router.get("/", async (req, res, next) => {
- console.log("dadd");
  try {
-  const result = await listContacts();
+  const result = await contacts.listContacts();
   res.json(result);
  } catch (error) {
   next(error);
@@ -22,10 +23,9 @@ router.get("/", async (req, res, next) => {
 router.get("/:contactId", async (req, res, next) => {
  try {
   const { contactId } = req.params;
-  const result = await getContactById(contactId);
-
+  const result = await contacts.getContactById(contactId);
   if (!result) {
-   return res.status(404).json({ message: "Contact not found" });
+   throw new Error(`Contact with ${contactId} not found`);
   }
   res.json(result);
  } catch (error) {
@@ -35,12 +35,12 @@ router.get("/:contactId", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
  try {
-  const { error } = contactSchema.validate(req.body);
-  if (error) {
-   return res.status(400).json({ message: "Missing required name field" });
+  const validationError = addSchema.validate(req.body).error;
+  if (validationError) {
+   throw new Error(`Missing required field: ${validationError.message}`);
   }
-  const result = await addContact(req.body);
-  return res.status(201).json(result);
+  const result = await contacts.addContact(req.body);
+  res.status(201).json(result);
  } catch (error) {
   next(error);
  }
@@ -49,11 +49,13 @@ router.post("/", async (req, res, next) => {
 router.delete("/:contactId", async (req, res, next) => {
  try {
   const { contactId } = req.params;
-  const result = await removeContact(contactId);
+  const result = await contacts.removeContact(contactId);
   if (!result) {
-   return res.status(404).json({ message: "Contact not found" });
+   throw new Error(`Contact with id ${contactId} not found`);
   }
-  return res.json({ message: "Contact deleted" });
+  res.json({
+   message: "The contact was successfully deleted",
+  });
  } catch (error) {
   next(error);
  }
@@ -61,14 +63,14 @@ router.delete("/:contactId", async (req, res, next) => {
 
 router.put("/:contactId", async (req, res, next) => {
  try {
-  const { error } = contactSchema.validate(req.body);
-  if (error) {
-   return res.status(400).json({ message: "Missing required name field" });
+  const validationError = addSchema.validate(req.body).error;
+  if (validationError) {
+   throw new Error(`Missing fields: ${validationError.message}`);
   }
   const { contactId } = req.params;
-  const result = await updateContact(contactId, req.body);
+  const result = await contacts.updateContact(contactId, req.body);
   if (!result) {
-   return res.status(404).json({ message: "Contact not found" });
+   throw new Error(`Contact with id ${contactId} not found`);
   }
   res.json(result);
  } catch (error) {
