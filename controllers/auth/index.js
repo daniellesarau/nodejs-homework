@@ -1,6 +1,10 @@
 const { getUser, updateUser, register } = require("../../services/authenticate");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const Jimp = require("jimp");
+
+const fs = require("fs");
+const path = require("path");
 
 const current = async ({ user: { email, subscription } }, res, next) => {
  try {
@@ -32,7 +36,7 @@ const signup = async ({ body: { email, password } }, res, next) => {
   return res.status(201).json({
    status: "Created",
    code: 201,
-   data: { email: results.email, subscription: results.subscription },
+   data: { email: results.email, subscription: results.subscription, avatarUrl: results.avatarUrl },
   });
  } catch (error) {
   next(error);
@@ -79,9 +83,48 @@ const logout = async ({ user: { id } }, res, next) => {
   next(error);
  }
 };
+
+const updateAvatar = async (req, res, next) => {
+ try {
+  if (!req.file) {
+   return res.status(401).json({
+    status: "Unauthorized",
+    code: 401,
+   });
+  }
+
+  const uniqFilename = `${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
+
+  const destinationPath = path.join(__dirname, `../public/avatars/${uniqFilename}`);
+
+  await Jimp.read(req.file.path)
+   .then((image) => {
+    return image.resize(250, 250).quality(60).greyscale().writeAsync(destinationPath);
+   })
+   .then(() => {
+    fs.unlinkSync(req.file.path);
+   })
+   .catch((error) => {
+    throw error;
+   });
+
+  req.user.avatarUrl = `/avatars/${uniqFilename}`;
+  await req.user.save();
+
+  res.status(200).json({
+   status: "Succes",
+   code: 200,
+   avatarUrl: req.user.avatarUrl,
+  });
+ } catch (error) {
+  res.status(404).json({ error: error.message });
+  next(error);
+ }
+};
 module.exports = {
  current,
  signup,
  login,
  logout,
+ updateAvatar,
 };
