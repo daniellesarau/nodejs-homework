@@ -12,7 +12,7 @@ const getUser = async ({ email }) => {
 
 const getUserById = (userId) => User.findById(userId);
 
-const updateUser = (userId, body) => User.findByIdAndUpdate(userId, body);
+const updateUser = (userId, body) => User.findByIdAndUpdate(userId, body, { new: true });
 
 module.exports = {
  getUser,
