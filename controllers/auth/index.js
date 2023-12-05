@@ -1,8 +1,8 @@
-const { getUser, updateUser, register } = require("../../services/authenticate");
+const { getUser, updateUser, register, verifyEmail, sendEmail } = require("../../services/authenticate");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const Jimp = require("jimp");
-
+const { nanoid } = require("nanoid");
 const fs = require("fs");
 const path = require("path");
 
@@ -36,7 +36,7 @@ const signup = async ({ body: { email, password } }, res, next) => {
   return res.status(201).json({
    status: "Created",
    code: 201,
-   data: { email: results.email, subscription: results.subscription, avatarUrl: results.avatarUrl },
+   data: { email: results.email, subscription: results.subscription, avatarUrl: results.avatarUrl, verify: results.verify, verificationToken: results.verificationToken },
   });
  } catch (error) {
   next(error);
@@ -71,6 +71,7 @@ const login = async ({ body: { email, password } }, res, next) => {
   next(error);
  }
 };
+
 const logout = async ({ user: { id } }, res, next) => {
  try {
   await updateUser(id, { token: null });
@@ -94,7 +95,6 @@ const updateAvatar = async (req, res, next) => {
   }
 
   const uniqFilename = `${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
-
   const destinationPath = path.join(__dirname, `../public/avatars/${uniqFilename}`);
 
   await Jimp.read(req.file.path)
@@ -121,10 +121,58 @@ const updateAvatar = async (req, res, next) => {
   next(error);
  }
 };
+
+const verifyEmailUser = async (req, res, next) => {
+ try {
+  const { verificationToken } = req.params;
+  await verifyEmail(verificationToken);
+
+  res.status(200).json({ mesaj: "Verification successful!!! ", code: 200 });
+ } catch (error) {
+  res.status(404).json({
+   status: "error",
+   message: "User not found",
+  });
+ }
+};
+
+const resendVerifyEmail = async (req, res, next) => {
+ try {
+  const { email } = req.body;
+  if (!email) {
+   return res.status(400).json({ message: "Missing required field: email" });
+  }
+  const user = await getUser({ email });
+
+  if (!user) {
+   return res.status(404).json({ message: "Email not found" });
+  }
+  if (user.verify) {
+   return res.status(400).json({ message: "Verification has already been passed" });
+  }
+  const verificationToken = nanoid();
+  const verifyEmail = {
+   to: email,
+   from: "saraudaniela@gmail.com",
+   subject: "Verify email!",
+   text: `Your verification code is ${verificationToken} / http://localhost:3000/api/account/verify/${verificationToken}`,
+  };
+
+  await sendEmail(verifyEmail);
+  res.json({
+   message: "Verification email sent",
+  });
+ } catch (error) {
+  next(error);
+ }
+};
+
 module.exports = {
  current,
  signup,
  login,
  logout,
  updateAvatar,
+ verifyEmailUser,
+ resendVerifyEmail,
 };

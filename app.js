@@ -6,6 +6,7 @@ const dotenv = require("dotenv");
 const contactsRouter = require("./routes/api/contacts");
 const usersRouter = require("./routes/api/user");
 const path = require("path");
+const sgMail = require("@sendgrid/mail");
 
 const app = express();
 dotenv.config();
@@ -27,6 +28,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "public")));
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 app.use("/api/contacts", contactsRouter);
 app.use("/api/users", usersRouter);
